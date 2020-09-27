@@ -87,7 +87,7 @@ async function getFtePicks(page) {
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
   page.setDefaultNavigationTimeout(120 * 1000);
 
-  const picks = getFtePicks(page);
+  const picks = await getFtePicks(page);
   if (picks === null) {
     console.log('Failed to retrieve picks from FiveThirtyEight');
     process.exit(1);
