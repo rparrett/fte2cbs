@@ -6,7 +6,7 @@ const fteTeamToCBS = {
   'Jaguars': 'Jacksonville',
   'Bears': 'Chicago',
   'Falcons': 'Atlanta',
-  'Bengals': 'Cincinatti',
+  'Bengals': 'Cincinnati',
   'Eagles': 'Philadelphia',
   'Texans': 'Houston',
   'Steelers': 'Pittsburgh',
