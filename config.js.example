@@ -6,5 +6,6 @@ config.fte_url = 'https://projects.fivethirtyeight.com/2020-nfl-predictions/game
 config.cbs_login_url = 'https://www.cbssports.com/login?xurl=https%3A%2F%2Fwww.cbssports.com%2F';
 config.cbs_make_picks_url = 'http://somecompany.football.cbssports.com/office-pool/make-picks';
 config.headless = false;
+config.autoclose = true;
 
 module.exports = config;

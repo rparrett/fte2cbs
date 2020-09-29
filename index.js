@@ -221,4 +221,8 @@ async function getFtePicks(page) {
   }, { polling: 200 });
 
   console.log('done.');
+
+  if (config.headless || config.autoclose) {
+    process.exit(0);
+  }
 })();
