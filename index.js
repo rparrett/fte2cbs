@@ -181,12 +181,15 @@ async function getFtePicks(page) {
           console.log('flipping coin');
         }
 
+        const picked = cbsPreferredButton.classList.contains('selected') ||
+            cbsOtherButton.classList.contains('selected');
         const selected = pickButton.classList.contains('selected');
-        if (selected || (!selected && coinFlip)) {
-          console.log('skipping, no change or coinflip');
-        } else {
+
+        if (!picked || (!selected && !coinFlip)) {
           console.log('picking', pickName);
           pickButton.click();
+        } else {
+          console.log('skipping, no change or coinflip');
         }
       }
     }, pick);
