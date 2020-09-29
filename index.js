@@ -87,6 +87,8 @@ async function getFtePicks(page) {
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
   page.setDefaultNavigationTimeout(120 * 1000);
 
+  console.log("Grabbing picks from FiveThirtyEight.");
+
   const picks = await getFtePicks(page);
   if (picks === null) {
     console.log('Failed to retrieve picks from FiveThirtyEight');
@@ -102,6 +104,8 @@ async function getFtePicks(page) {
 
   // Login
 
+  console.log("Logging into CBS");
+
   await page.goto(config.cbs_login_url);
   await page.type('#userid', config.cbs_userid);
   await page.type('#password', config.cbs_password);
@@ -109,6 +113,8 @@ async function getFtePicks(page) {
   await page.waitForNavigation();
 
   // Make Picks
+
+  console.log("Making Picks");
 
   await page.goto(config.cbs_make_picks_url);
   await page.waitForSelector('.teamSelection');
