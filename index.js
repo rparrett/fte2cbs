@@ -195,13 +195,17 @@ async function getFtePicks(page) {
     }, pick);
   }
 
+  console.log('waiting for all buttons to have definitely been clicked');
+
   await page.waitForFunction(() => {
     const buttons = Array.from(document.querySelectorAll('.awayTeamSelection'));
     const selected = Array.from(document.querySelectorAll('.teamSelection.selected'));
-    console.log(buttons.length, selected.length);
+    console.log(buttons.length + "/" + selected.length);
 
     return buttons.length === selected.length;
   }, { polling: 200 });
+
+  console.log('submitting');
 
   await page.click('#pickSubmit');
   await page.waitForNavigation();
