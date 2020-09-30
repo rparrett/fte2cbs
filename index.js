@@ -120,8 +120,6 @@ async function getFtePicks(page) {
   await page.waitForSelector('.teamSelection');
 
   for (const pick of picks) {
-    console.log('538', pick.team, pick.spread);
-
     await page.evaluate(pick => {
       const matchups = Array.from(document.querySelectorAll('.pickContainer'));
       for (const matchup of matchups) {
@@ -155,7 +153,8 @@ async function getFtePicks(page) {
           spread *= -1;
         }
 
-        console.log('cbs', cbsPreferredName, spread);
+        console.log('538: ', pick.team, pick.spread);
+        console.log('cbs: ', cbsPreferredName, spread);
 
         let pickName;
         let pickButton;
@@ -183,20 +182,32 @@ async function getFtePicks(page) {
           pickName = cbsOtherName;
         }
 
+        const preferredSelected = cbsPreferredButton.classList.contains('selected');
+        const otherSelected = cbsOtherButton.classList.contains('selected');
+        const anySelected = preferredSelected || otherSelected;
+
+        const pickSelected = pickButton.classList.contains('selected');
+
         if (coinFlip) {
-          console.log('flipping coin');
+          if (preferredSelected) {
+            console.log('pick:', cbsPreferredName, "(coin flip)");
+          } else if (otherSelected) {
+            console.log('pick:', cbsOtherName, "(coin flip)");
+          } else {
+            console.log('pick:', pickName, "(coin flip)");
+          }
+        } else {
+          console.log('pick:', pickName);
         }
 
-        const picked = cbsPreferredButton.classList.contains('selected') ||
-            cbsOtherButton.classList.contains('selected');
-        const selected = pickButton.classList.contains('selected');
-
-        if (!picked || (!selected && !coinFlip)) {
-          console.log('picking', pickName);
+        if (!anySelected || (!pickSelected && !coinFlip)) {
+          console.log('clicking button for ', pickName);
           pickButton.click();
         } else {
           console.log('skipping, no change or coinflip');
         }
+
+        console.log('');
       }
     }, pick);
   }
