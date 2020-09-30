@@ -227,8 +227,8 @@ async function getFtePicks(page) {
   await page.click('#pickSubmit');
 
   await page.waitForFunction(() => {
-      const dialog = document.getElementById('saveConfirmed');
-      return dialog && dialog.parentElement.style.display == 'block'
+    const dialog = document.getElementById('saveConfirmed');
+    return dialog && dialog.parentElement.style.display === 'block';
   }, { polling: 200 });
 
   console.log('done.');
