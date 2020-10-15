@@ -84,7 +84,7 @@ async function getFtePicks(page) {
   const pages = await browser.pages();
   let page = pages[0];
   
-  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+  await page.exposeFunction('fte2cbs_log', (...args) => console.log(...args));
   page.setDefaultNavigationTimeout(120 * 1000);
 
   console.log("Grabbing picks from FiveThirtyEight.");
@@ -99,7 +99,7 @@ async function getFtePicks(page) {
   // while debugging.
 
   page = await browser.newPage();
-  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+  await page.exposeFunction('fte2cbs_log', (...args) => console.log(...args));
   page.setDefaultNavigationTimeout(120 * 1000);
 
   // Login
@@ -120,7 +120,7 @@ async function getFtePicks(page) {
   await page.waitForSelector('.teamSelection');
 
   for (const pick of picks) {
-    await page.evaluate(pick => {
+    await page.evaluate((pick) => {
       const matchups = Array.from(document.querySelectorAll('.pickContainer'));
       for (const matchup of matchups) {
         const homeTeamButton = matchup.querySelector('.homeTeamSelection');
@@ -153,8 +153,8 @@ async function getFtePicks(page) {
           spread *= -1;
         }
 
-        console.log('538: ', pick.team, pick.spread);
-        console.log('cbs: ', cbsPreferredName, spread);
+        fte2cbs_log('538: ', pick.team, pick.spread);
+        fte2cbs_log('CBS: ', cbsPreferredName, spread);
 
         let pickName;
         let pickButton;
@@ -190,39 +190,39 @@ async function getFtePicks(page) {
 
         if (coinFlip) {
           if (preferredSelected) {
-            console.log('pick:', cbsPreferredName, "(coin flip)");
+            fte2cbs_log('Pick:', cbsPreferredName, "(coin flip)");
           } else if (otherSelected) {
-            console.log('pick:', cbsOtherName, "(coin flip)");
+            fte2cbs_log('Pick:', cbsOtherName, "(coin flip)");
           } else {
-            console.log('pick:', pickName, "(coin flip)");
+            fte2cbs_log('Pick:', pickName, "(coin flip)");
           }
         } else {
-          console.log('pick:', pickName);
+          fte2cbs_log('Pick:', pickName);
         }
 
         if (!anySelected || (!pickSelected && !coinFlip)) {
-          console.log('clicking button for ', pickName);
+          fte2cbs_log('Clicking button for ', pickName);
           pickButton.click();
         } else {
-          console.log('skipping, no change or coinflip');
+          fte2cbs_log('Skipping, no change or coinflip');
         }
 
-        console.log('');
+        fte2cbs_log();
       }
     }, pick);
   }
 
-  console.log('waiting for all buttons to have definitely been clicked');
+  console.log('Waiting for all buttons to have definitely been clicked');
 
   await page.waitForFunction(() => {
     const buttons = Array.from(document.querySelectorAll('.awayTeamSelection'));
     const selected = Array.from(document.querySelectorAll('.teamSelection.selected'));
-    console.log(buttons.length + "/" + selected.length);
+    fte2cbs_log(buttons.length + "/" + selected.length);
 
     return buttons.length === selected.length;
   }, { polling: 200 });
 
-  console.log('submitting');
+  console.log('Submitting');
 
   await page.click('#pickSubmit');
 
@@ -231,7 +231,7 @@ async function getFtePicks(page) {
     return dialog && dialog.parentElement.style.display === 'block';
   }, { polling: 200 });
 
-  console.log('done.');
+  console.log('Done.');
 
   if (config.headless || config.autoclose) {
     process.exit(0);
