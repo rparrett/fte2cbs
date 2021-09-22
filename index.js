@@ -202,14 +202,14 @@ async function getFtePicks(page) {
 
         const pickSelected = ftePickButton.classList.contains("selected");
 
+        if (preferredSelected) {
+          fte2cbs_log("Sel: ", cbsPreferredName);
+        } else if (otherSelected) {
+          fte2cbs_log("Sel: ", cbsOtherName);
+        }
+
         if (coinFlip) {
-          if (preferredSelected) {
-            fte2cbs_log("Pick:", cbsPreferredName, "(coin flip)");
-          } else if (otherSelected) {
-            fte2cbs_log("Pick:", cbsOtherName, "(coin flip)");
-          } else {
-            fte2cbs_log("Pick:", ftePickName, "(coin flip)");
-          }
+          fte2cbs_log("Pick:", ftePickName, "(coin flip)");
         } else {
           fte2cbs_log("Pick:", ftePickName);
         }
@@ -218,7 +218,7 @@ async function getFtePicks(page) {
           fte2cbs_log("Clicking button for ", ftePickName);
           ftePickButton.click();
         } else {
-          fte2cbs_log("Skipping, no change or coinflip");
+          fte2cbs_log("Skipping, no change");
         }
 
         fte2cbs_log();
