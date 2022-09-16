@@ -35,6 +35,13 @@ const config = require("./config");
       const awayTeamButton = matchup.querySelector(".awayTeamSelection");
       const awayTeamName = awayTeamButton.textContent.trim();
 
+      if (
+        homeTeamButton.classList.contains("inactive") ||
+        awayTeamButton.classList.contains("inactive")
+      ) {
+        continue;
+      }
+
       const spreadContainer = matchup.querySelector(".spreadInfo");
       let spread = parseFloat(
         spreadContainer.textContent.replace(/[^-.\d]/g, "")
@@ -102,9 +109,13 @@ const config = require("./config");
       const selected = Array.from(
         document.querySelectorAll(".teamSelection.selected")
       );
-      fte2cbs_log(buttons.length + "/" + selected.length);
+      const inactive = Array.from(
+        document.querySelectorAll(".awayTeamSelection.inactive")
+      );
+      let active = buttons.length - inactive.length;
+      fte2cbs_log(selected.length + "/" + active);
 
-      return buttons.length === selected.length;
+      return active === selected.length;
     },
     { polling: 200 }
   );
