@@ -1,7 +1,11 @@
+const { fullLists, PuppeteerBlocker } = require("@cliqz/adblocker-puppeteer");
 const puppeteer = require("puppeteer");
 const config = require("./config");
+const fs = require("fs");
+const fetch = require("node-fetch");
 
 (async () => {
+  const blocker = await PuppeteerBlocker.fromLists(fetch, fullLists);
   const browser = await puppeteer.launch({ headless: config.headless });
 
   const pages = await browser.pages();
@@ -9,6 +13,7 @@ const config = require("./config");
 
   await page.exposeFunction("fte2cbs_log", (...args) => console.log(...args));
   page.setDefaultNavigationTimeout(120 * 1000);
+  await blocker.enableBlockingInPage(page);
 
   // Login
 
@@ -120,19 +125,24 @@ const config = require("./config");
     { polling: 200 }
   );
 
+  await page.waitForTimeout(2000);
+
   console.log("Submitting");
 
   await page.click("#pickSubmit");
+  await page.click("#pickSubmit");
+
+  console.log("Awaiting confirmation of save.");
 
   await page.waitForFunction(
     () => {
-      const dialog = document.getElementById("saveConfirmed");
-      return dialog && dialog.parentElement.style.display === "block";
+      const dialog = document.getElementById("confirmMsg");
+      // offsetParent returns null when element or any of its parents
+      // is hidden
+      return dialog && dialog.offsetParent !== null;
     },
-    { polling: 200 }
+    { polling: 100 }
   );
-
-  console.log("Done.");
 
   if (config.headless || config.autoclose) {
     process.exit(0);
