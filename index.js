@@ -3,6 +3,43 @@ const puppeteer = require("puppeteer");
 const config = require("./config");
 const fs = require("fs");
 const fetch = require("node-fetch");
+const csv = require("csv-parser");
+const { Readable } = require("stream");
+
+const modelTeamToCbs = {
+  MIA: "Dolphins",
+  BUF: "Bills",
+  GB: "Packers",
+  CLE: "Browns",
+  NO: "Saints",
+  SEA: "Seahawks",
+  NYJ: "Jets",
+  TB: "Buccaneers",
+  DET: "Lions",
+  BAL: "Ravens",
+  KC: "Chiefs",
+  NYG: "Giants",
+  LV: "Raiders",
+  WAS: "Commanders",
+  ATL: "Falcons",
+  CAR: "Panthers",
+  LAR: "Rams",
+  PHI: "Eagles",
+  IND: "Colts",
+  TEN: "Titans",
+  CIN: "Bengals",
+  MIN: "Vikings",
+  DEN: "Broncos",
+  LAC: "Chargers",
+  PIT: "Steelers",
+  NE: "Patriots",
+  HOU: "Texans",
+  JAX: "Jaguars",
+  DAL: "Cowboys",
+  CHI: "Bears",
+  ARI: "Cardinals",
+  SF: "49ers",
+};
 
 (async () => {
   const blocker = await PuppeteerBlocker.fromLists(fetch, fullLists);
@@ -15,14 +52,19 @@ const fetch = require("node-fetch");
   page.setDefaultNavigationTimeout(120 * 1000);
   await blocker.enableBlockingInPage(page);
 
+  // Grab predictions
+
+  let modelData = await downloadModelData();
+  let modelSpreads = getModelSpreads(modelData);
+
   // Login
 
   console.log("Logging into CBS");
 
   await page.goto(config.cbs_login_url);
-  await page.type("#userid", config.cbs_userid);
-  await page.type("#password", config.cbs_password);
-  await page.click("input[type=submit]");
+  await page.type("#name", config.cbs_userid);
+  await page.type("input[name=password]", config.cbs_password);
+  await page.click("button[type=submit]");
   await page.waitForNavigation();
 
   // Make Picks
@@ -30,121 +72,167 @@ const fetch = require("node-fetch");
   console.log("Making Picks");
 
   await page.goto(config.cbs_make_picks_url);
-  await page.waitForSelector(".teamSelection");
 
-  await page.evaluate(() => {
-    const matchups = Array.from(document.querySelectorAll(".pickContainer"));
-    for (const matchup of matchups) {
-      const homeTeamButton = matchup.querySelector(".homeTeamSelection");
-      const homeTeamName = homeTeamButton.textContent.trim();
-      const awayTeamButton = matchup.querySelector(".awayTeamSelection");
-      const awayTeamName = awayTeamButton.textContent.trim();
+  let cbsSpreads = await extractSpreadsSimple(page);
 
-      if (
-        homeTeamButton.classList.contains("inactive") ||
-        awayTeamButton.classList.contains("inactive")
-      ) {
-        continue;
-      }
+  for (var i = 0; i < cbsSpreads.length; i++) {
+    const cbsSpread = cbsSpreads[i];
 
-      const spreadContainer = matchup.querySelector(".spreadInfo");
-      let spread = parseFloat(
-        spreadContainer.textContent.replace(/[^-.\d]/g, "")
-      );
+    const modelSpread = modelSpreads.find(
+      (model) => model.away === cbsSpread.away && model.home === cbsSpread.home
+    );
 
-      let cbsPreferredName;
-      let cbsPreferredButton;
-      let cbsOtherName;
-      let cbsOtherButton;
-
-      if (spread < 0.0) {
-        cbsPreferredName = homeTeamName;
-        cbsPreferredButton = homeTeamButton;
-        cbsOtherName = awayTeamName;
-        cbsOtherButton = awayTeamButton;
-      } else {
-        cbsPreferredName = awayTeamName;
-        cbsPreferredButton = awayTeamButton;
-        cbsOtherName = homeTeamName;
-        cbsOtherButton = homeTeamButton;
-        spread *= -1;
-      }
-
-      if (Math.floor(Math.random() * 2) === 0) {
-        ftePickButton = cbsPreferredButton;
-        ftePickName = cbsPreferredName;
-      } else {
-        ftePickButton = cbsOtherButton;
-        ftePickName = cbsOtherName;
-      }
-
-      const preferredSelected =
-        cbsPreferredButton.classList.contains("selected");
-      const otherSelected = cbsOtherButton.classList.contains("selected");
-      const anySelected = preferredSelected || otherSelected;
-
-      const pickSelected = ftePickButton.classList.contains("selected");
-
-      if (preferredSelected) {
-        fte2cbs_log("Sel: ", cbsPreferredName);
-      } else if (otherSelected) {
-        fte2cbs_log("Sel: ", cbsOtherName);
-      }
-
-      fte2cbs_log("Pick:", ftePickName, "(coin flip)");
-
-      if (!anySelected || !pickSelected) {
-        fte2cbs_log("Clicking button for ", ftePickName);
-        ftePickButton.click();
-      } else {
-        fte2cbs_log("Skipping, no change");
-      }
-
-      fte2cbs_log();
+    if (!modelSpread) {
+      console.log("Could not find model spread for ", cbsSpread, modelSpread);
     }
-  });
 
-  console.log("Waiting for all buttons to have definitely been clicked");
-
-  await page.waitForFunction(
-    () => {
-      const buttons = Array.from(
-        document.querySelectorAll(".awayTeamSelection")
+    if (!modelSpread.awaySpread) {
+      console.log(
+        "Could not find model spread away spread for ",
+        cbsSpread,
+        modelSpread
       );
-      const selected = Array.from(
-        document.querySelectorAll(".teamSelection.selected")
-      );
-      const inactive = Array.from(
-        document.querySelectorAll(".awayTeamSelection.inactive")
-      );
-      let active = buttons.length - inactive.length;
-      fte2cbs_log(selected.length + "/" + active);
+    }
 
-      return active === selected.length;
-    },
-    { polling: 200 }
-  );
+    const awayDiff = modelSpread.awaySpread - cbsSpread.awaySpread;
+    const absDiff = Math.abs(awayDiff);
 
-  await page.waitForTimeout(2000);
+    if (awayDiff < 0) {
+      console.log(
+        `Model predicts diff of ${absDiff} for away team (${modelSpread.away})`
+      );
+      await clickIfNotSelected(page, cbsSpread.awayButtonSelector);
+    } else if (awayDiff > 0) {
+      console.log(
+        `Model predicts diff of ${absDiff} for home team (${modelSpread.home})`
+      );
+      await clickIfNotSelected(page, cbsSpread.homeButtonSelector);
+    } else {
+      if (Math.random() < 0.5) {
+        console.log(
+          `Model predicts same outcome. Rolled dice for (${modelSpread.away})`
+        );
+        await clickIfNotSelected(page, cbsSpread.awayButtonSelector);
+      } else {
+        console.log(
+          `Model predicts same outcome. Rolled dice for (${modelSpread.home})`
+        );
+        await clickIfNotSelected(page, cbsSpread.homeButtonSelector);
+      }
+    }
+
+    await page.waitForTimeout(500);
+  }
 
   console.log("Submitting");
 
-  await page.click("#pickSubmit");
-  await page.click("#pickSubmit");
-
-  console.log("Awaiting confirmation of save.");
-
-  await page.waitForFunction(
-    () => {
-      const dialog = document.getElementById("confirmMsg");
-      // offsetParent returns null when element or any of its parents
-      // is hidden
-      return dialog && dialog.offsetParent !== null;
-    },
-    { polling: 100 }
-  );
+  await page.click("button[data-testid='save-picks-btn']");
 
   if (config.headless || config.autoclose) {
     process.exit(0);
   }
 })();
+
+async function downloadModelData() {
+  const csvUrl =
+    "https://raw.githubusercontent.com/greerreNFL/nfelo/refs/heads/main/output_data/prediction_tracker.csv";
+
+  try {
+    console.log("Downloading Nfelo prediction data...");
+
+    const response = await fetch(csvUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const csvText = await response.text();
+    const data = await parseCSVFromString(csvText);
+
+    console.log(`Downloaded ${data.length} games`);
+    return data;
+  } catch (error) {
+    console.error("Error downloading CSV:", error);
+    throw error;
+  }
+}
+
+function parseCSVFromString(csvText) {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    const stream = Readable.from([csvText]);
+
+    stream
+      .pipe(csv())
+      .on("data", (row) => results.push(row))
+      .on("end", () => resolve(results))
+      .on("error", reject);
+  });
+}
+
+function getModelSpreads(data) {
+  return data.map((row) => {
+    const homeSpread = parseFloat(row.nfelo_projected_home_spread);
+    const awaySpread = -homeSpread;
+
+    return {
+      away: modelTeamToCbs[row.away_team],
+      home: modelTeamToCbs[row.home_team],
+      awaySpread: awaySpread,
+      homeSpread: homeSpread,
+    };
+  });
+}
+
+async function extractSpreadsSimple(page) {
+  try {
+    await page.waitForSelector('[data-cy="spread"]', { timeout: 10000 });
+
+    const { spreads, awayTeams, homeTeams } = await page.evaluate(() => {
+      // Add indices to elements for later clicking
+      const awayElements = Array.from(
+        document.querySelectorAll('[data-testid="away-team"]')
+      );
+      const homeElements = Array.from(
+        document.querySelectorAll('[data-testid="home-team"]')
+      );
+
+      awayElements.forEach((el, i) => el.setAttribute("data-away-index", i));
+      homeElements.forEach((el, i) => el.setAttribute("data-home-index", i));
+
+      return {
+        spreads: Array.from(
+          document.querySelectorAll('[data-cy="spread"] span')
+        ).map((el) => el.textContent.trim()),
+        awayTeams: Array.from(
+          document.querySelectorAll('[data-testid="away-team"] h3')
+        ).map((el) => el.textContent.trim()),
+        homeTeams: Array.from(
+          document.querySelectorAll('[data-testid="home-team"] h3')
+        ).map((el) => el.textContent.trim()),
+      };
+    });
+
+    // Combine into matchups
+    const matchups = awayTeams.map((awayTeam, i) => ({
+      away: awayTeam,
+      home: homeTeams[i],
+      awaySpread: parseFloat(spreads[i * 2]),
+      homeSpread: parseFloat(spreads[i * 2 + 1]),
+      awayButtonSelector: `[data-testid="away-team"][data-away-index="${i}"]`,
+      homeButtonSelector: `[data-testid="home-team"][data-home-index="${i}"]`,
+    }));
+
+    return matchups;
+  } catch (error) {
+    console.error("Error during scraping:", error);
+    throw error;
+  }
+}
+
+async function clickIfNotSelected(page, selector) {
+  const selected = (await page.$(selector + ".item-selected")) !== null;
+  if (selected) {
+    return;
+  }
+  page.click(selector);
+}
