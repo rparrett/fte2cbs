@@ -86,14 +86,6 @@ const modelTeamToCbs = {
       console.log("Could not find model spread for ", cbsSpread, modelSpread);
     }
 
-    if (!modelSpread.awaySpread) {
-      console.log(
-        "Could not find model spread away spread for ",
-        cbsSpread,
-        modelSpread
-      );
-    }
-
     const awayDiff = modelSpread.awaySpread - cbsSpread.awaySpread;
     const absDiff = Math.abs(awayDiff);
 
